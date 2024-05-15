@@ -50,7 +50,7 @@ runs:
     - name: Checkout Repository rosa modules
       uses: actions/checkout@v4
       with:
-        repository: "https://github.com/camunda/camunda-tf-rosa.git"
+        repository: "camunda/camunda-tf-rosa"
         ref: ${{ inputs.tf-modules-revision }}
         path: ${{ inputs.tf-modules-path }}
 
