@@ -1,9 +1,31 @@
 ---
 name: Cluster creation and destruction test
 
-# TODO: align this with EKS current strategy
 on:
-  push:
+  schedule:
+    - cron: '0 1 * * 1' # At 01:00 on Monday.
+
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: "Cluster name."
+        required: false
+        type: string
+      delete_cluster:
+        description: "Whether to delete the cluster."
+        required: false
+        type: boolean
+        default: true
+
+  pull_request:
+    # the paths should be synced with ../labeler.yml
+    paths:
+      - modules/fixtures/**/*.tf
+      - modules/**.tf
+      - .tool-versions
+      - .github/workflows/tests.yml
+      - .github/actions/**/*.yml
+      - justfile
 
 # limit to a single execution per actor of this workflow
 concurrency:
@@ -13,15 +35,12 @@ env:
   AWS_PROFILE: "infex"
   AWS_REGION: "eu-west-2"
   TF_S3_BUCKET: "camunda-tf-rosa"
-  CLUSTER_NAME: "mycluster"
+  OCP_ADMIN_USERNAME: "cluster-admin"
+  OCP_NAMESPACE: "myns"
 
 jobs:
 
-    # TODO: implement same logic as EKS
-  # We can skip some tests using the commit description (skip-tests:NameOfTest1,NameOfTest2) or all tests (skip-tests:all) (see `DEVELOPER.md`)
-  # If all tests are skipped, the result of this workflow will be `failed` on purpose
-  # If you want to skip tests and have no error, you need to use `testing-ci-not-necessary` as a label on the PR
-  configure-tests:
+  action-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,6 +48,17 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+
+      - name: Get OCP Cluster Name
+        id: commit_info
+        run: |
+          if [[ -n "${{ inputs.cluster_name }}" ]]; then
+            cluster_name="${{ inputs.cluster_name }}"
+          else
+            cluster_name="cl-$(git rev-parse --short HEAD)"
+          fi
+
+          echo "cluster_name=$cluster_name" >> "$GITHUB_OUTPUT"
 
       - name: Import Secrets
         id: secrets
@@ -55,20 +85,30 @@ jobs:
       - name: Create Cluster
         timeout-minutes: 125
         uses: ./.github/actions/rosa-create-cluster
+        id: create_cluster
         with:
           rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-          cluster-name: "${{ env.CLUSTER_NAME }}"
-          admin-password: ${{ env.CI_OPENSHIFT_MAIN_PASSWORD }}
+          cluster-name: ${{ steps.commit_info.outputs.cluster_name }}
+          admin-username: ${{ env.OCP_ADMIN_USERNAME }}
+          admin-password: ${{ steps.secrets.outputs.CI_OPENSHIFT_MAIN_PASSWORD }}
           aws-region: ${{ env.AWS_REGION }}
-          namespace:  "myns"
           s3-backend-bucket: ${{ env.TF_S3_BUCKET }}
+
+      - name: Create namespace if not exists
+        shell: bash
+        run: |
+          if ! oc get namespace "${{ env.OCP_NAMESPACE }}"; then
+              oc new-project "${{ env.OCP_NAMESPACE }}"
+          else
+              echo "Namespace '${{ env.OCP_NAMESPACE }}' already exists"
+          fi
 
       - name: Delete Cluster
         timeout-minutes: 125
-        if: always()
+        if: always() && !(github.event_name == 'workflow_dispatch' && github.event.inputs.delete_cluster == 'false')
         uses: ./.github/actions/rosa-delete-cluster
         with:
           rh-token: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
-          cluster-name: "${{ env.CLUSTER_NAME }}"
+          cluster-name: "${{ steps.commit_info.outputs.cluster_name }}"
           aws-region: ${{ env.AWS_REGION }}
           s3-backend-bucket: ${{ env.TF_S3_BUCKET }}
