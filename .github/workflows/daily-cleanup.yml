@@ -25,8 +25,6 @@ env:
   TESTS_AWS_REGION: "eu-west-2"
   TF_S3_BUCKET: "camunda-tf-rosa"
 
-  ASSIGNEES_ISSUE_ERROR: "Langleu, leiicamundi"
-
 jobs:
 
   cleanup-clusters:
@@ -76,28 +74,11 @@ jobs:
           tf-bucket: "${{ env.TF_S3_BUCKET }}"
           max-age-hours-cluster: "${{ env.MAX_AGE_HOURS_CLUSTER }}"
 
-      - name: Close issue in case of success
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WORKFLOW_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        run: |
-          issue_url=$(gh --repo "${{ github.repository }}" search issues  "Failed to cleanup clusters" --state=open --label="schedule" --json 'url' | jq '.[0].url' -r)
-
-          if [ "$issue_url" != "null" ]; then
-            gh issue close --comment "Auto-closing issue as the cleanup has been successfuly ran in ${{ env.WORKFLOW_URL }}." "$issue_url"
-          else
-            echo "No open issues found with the specified criteria."
-          fi
-
-      - name: Create issue on failure
-        if: failure()
-        uses: JasonEtco/create-an-issue@1b14a70e4d8dc185e5cc76d3bec9eab20257b2c5 # v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WORKFLOW_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      - name: Notify in Slack in case of failure
+        id: slack-notification
+        if: failure() && github.event_name == 'schedule'
+        uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@705df1af7d06626b8c6838f58123bb3bf84fc093 # main
         with:
-          assignees: "${{ env.ASSIGNEES_ISSUE_ERROR }}"
-          update_existing: true
-          search_existing: open
-          filename: .github/templates/issue_delete_clusters_failed.md
+          vault_addr: ${{ secrets.VAULT_ADDR }}
+          vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+          vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
