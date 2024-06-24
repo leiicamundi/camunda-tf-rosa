@@ -1,5 +1,128 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
-  extends: ["github>camunda/infraex-common-config:default.json5"],
-  groupName: "mono-update-renovate", // we keep all updates in a single renovate branch in order to save CI tests
+  extends: [
+    "config:recommended",
+    ":automergeDisabled",
+    ":dependencyDashboard",
+    ":docker",
+    ":enablePreCommit",
+    ":semanticCommits",
+  ],
+  schedule: ["every weekend"],
+  ignorePaths: [], // overwrites default to track also test paths
+  platformAutomerge: false, // Automerge cannot be applied due to branch security settings. Explicit approval from a maintainer is required, so we do not use or configure automerge in our repositories.
+  prHourlyLimit: 6,
+  prConcurrentLimit: 20,
+  commitBodyTable: true,
+  separateMajorMinor: false,
+  prBodyNotes: [
+    "{{#if isMajor}}:warning: THIS IS A MAJOR VERSION UPDATE :warning:{{/if}}",
+    "Before merging, *always* check with the release notes if any other changes need to be done.",
+  ],
+  major: {
+    enabled: true,
+    addLabels: ["upgrade:major"], // Each major component should have a dedicated PR.
+  },
+  minor: {
+    enabled: true,
+    addLabels: ["upgrade:minor"],
+    groupName: "minor-grouped", // Group all minor updates in a single branch to save CI computing.
+  },
+  patch: {
+    enabled: true,
+    addLabels: ["upgrade:patch"],
+    groupName: "patch-grouped", // Group all patch updates in a single branch to save CI computing.
+  },
+  vulnerabilityAlerts: {
+    addLabels: ["security"], // Security alerts should be handled manually to assess the consequences.
+    enabled: true,
+  },
+  packageRules: [
+    {
+      "matchUpdateTypes": [
+        "pin",
+        "digest"
+      ],
+      "enabled": true,
+      groupName: "patch-grouped", // Group all pin and digests updates in a single branch with patch to save CI computing.
+    },
+    {
+      matchPackageNames: ["camunda-platform"],
+      addLabels: ["group:camunda-platform"],
+    },
+    {
+      matchDatasources: ["go"],
+      addLabels: ["group:go"],
+    },
+    // limit the PR creation for the Renovate pre-commit hook (it's released very frequently)
+    {
+      matchPackageNames: ["renovatebot/pre-commit-hooks"],
+      matchUpdateTypes: ["patch"],
+      enabled: false,
+    },
+    {
+      matchPackageNames: ["renovatebot/pre-commit-hooks"],
+      schedule: ["on Saturday"],
+    },
+    // GitHub Actions
+    {
+      matchManagers: ["github-actions"],
+      addLabels: ["group:github-actions", "component:ci"],
+    },
+    // Terraform AWS modules
+    {
+      matchDatasources: ["terraform-module"],
+      matchPackagePatterns: ["terraform-aws-modules.*"],
+      addLabels: ["group:terraform"],
+      schedule: [
+        "every 2 weeks on Saturday and Sunday",
+      ],
+    },
+    // Terraform major provider updates
+    {
+      matchDatasources: ["terraform-provider"],
+      addLabels: ["group:terraform"],
+      schedule: [
+        "every 2 weeks on Saturday and Sunday",
+      ]
+    },
+    // For known GitHub repositories that use GitHub tags/releases of format
+    // "v1.2.3" and where the asdf plugin ignores the "v" prefix, we also tell
+    // Renovate to ignore it via extractVersion when updating .tool-version file
+    {
+      matchFileNames: ["**/.tool-versions", "**/*.tf"],
+      matchPackageNames: [
+        "eksctl-io/eksctl",
+        "hashicorp/terraform",
+        "helm/helm",
+        "koalaman/shellcheck",
+        "pre-commit/pre-commit",
+        "rhysd/actionlint",
+      ],
+      extractVersion: "^v(?<version>.*)$",
+    },
+  ],
+  customManagers: [
+   {
+      customType: "regex",
+      fileMatch: [
+        "\.yml",
+        "\.sh",
+        "\.go",
+        "\.tool-versions$",
+        "\.tf",
+        "^justfile$"
+        ],
+      matchStrings: [
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*?=(?<currentValue>.*)",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*?- (?<currentValue>.*)",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*?: (?<currentValue>.*)",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*?=\"(?<currentValue>.*)\"",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*? \"(?<currentValue>.*)\"",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?( extractVersion=(?<extractVersion>.*?))?\\s.*? (?<currentValue>.*)\\s",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?( extractVersion=(?<extractVersion>.*?))?\\s(?<originalPackageName>.*) := \"(?<currentValue>.*?)\"\\s"
+      ],
+      versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+  ]
 }
