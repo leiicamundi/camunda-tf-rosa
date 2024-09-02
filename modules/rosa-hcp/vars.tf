@@ -8,7 +8,7 @@ variable "cluster_name" {
 variable "openshift_version" {
   type        = string
   description = "The version of ROSA to be deployed"
-  # renovate: datasource=rosa-camunda depName=red-hat-openshift versioning=semver
+  # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
   default = "4.14.21"
   validation {
     condition     = can(regex("^[0-9]*[0-9]+.[0-9]*[0-9]+.[0-9]*[0-9]+$", var.openshift_version))
