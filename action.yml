@@ -1,0 +1,81 @@
+---
+name: Deploy RDS Aurora Cluster
+
+description: |
+    This GitHub Action automates the deployment of an RDS Aurora cluster using Terraform.
+    This action will also install Terraform and awscli. It will output the Aurora cluster endpoint.
+
+inputs:
+    cluster-name:
+        description: Name of the RDS Aurora cluster to deploy
+        required: true
+
+    username:
+        description: Username for the PostgreSQL admin user
+        required: true
+
+    password:
+        description: Password for the PostgreSQL admin user
+        required: true
+
+    vpc-id:
+        description: VPC ID to create the cluster in
+        required: true
+
+    subnet-ids:
+        description: List of subnet IDs to create the cluster in
+        required: true
+
+    cidr-blocks:
+        description: CIDR blocks to allow access from and to
+        required: true
+
+    availability-zones:
+        description: Array of availability zones to use for the Aurora cluster
+        required: true
+
+    additional-terraform-vars:
+        description: JSON object containing additional Terraform variables
+        required: false
+        default: '{}'
+
+    s3-backend-bucket:
+        description: Name of the S3 bucket to store Terraform state
+        required: true
+
+    s3-bucket-region:
+        description: Region of the bucket containing the resources states
+        required: false
+
+    tf-modules-revision:
+        description: Git revision of the tf modules to use
+        default: main
+
+    tf-modules-path:
+        description: Path where the tf Aurora modules will be cloned
+        default: ./.action-tf-modules/aurora/
+
+  # inherited from https://github.com/hashicorp/setup-terraform/blob/main/action.yml
+    tf-cli-config-credentials-hostname:
+        description: The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration
+            file. Defaults to `app.terraform.io`.
+        default: app.terraform.io
+
+    tf-cli-config-credentials-token:
+        description: The API token for a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration
+            file.
+        required: false
+
+    tf-terraform-version:
+        description: The version of Terraform CLI to install. Defaults to `latest`.
+        default: latest
+
+    tf-terraform-wrapper:
+        description: Whether or not to install a wrapper to wrap subsequent calls of the `terraform` binary and expose its STDOUT, STDERR, and exit code
+            as outputs named `stdout`, `stderr`, and `exitcode` respectively. Defaults to `true`.
+        default: 'true'
+
+    awscli-version:
+        description: Version of the aws cli to use
+    # renovate: datasource=github-releases depName=aws/aws-cli
+        default: 2.14.52
