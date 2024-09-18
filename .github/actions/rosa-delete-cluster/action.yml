@@ -52,7 +52,7 @@ runs:
   using: 'composite'
   steps:
     - name: Install Terraform
-      uses: hashicorp/setup-terraform@651471c36a6092792c552e8b1bef71e592b462d8 # v3
+      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
       with:
         cli_config_credentials_hostname: ${{ inputs.tf-cli-config-credentials-hostname }}
         cli_config_credentials_token: ${{ inputs.tf-cli-config-credentials-token }}
@@ -81,7 +81,7 @@ runs:
         echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
 
     - name: Checkout Repository rosa modules
-      uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
       with:
         repository: "camunda/camunda-tf-rosa"
         ref: ${{ inputs.tf-modules-revision }}
